@@ -279,7 +279,7 @@ function loadWord(){
   if(currentIndex>=wordList.length){endSession();return;}
   const entry=wordList[currentIndex];
   const word=entry.w;
-  answer=Array(word.length).fill(null);
+  answer=Array(word.length).fill(null); // null or tileIdx
   usedTiles=Array(word.length).fill(false);
 
   // scramble — ensure different from original
@@ -299,10 +299,11 @@ function loadWord(){
 function renderSlots(){
   const row=document.getElementById('answer-row');
   row.innerHTML='';
-  answer.forEach((_,i)=>{
+  answer.forEach((tileIdx,i)=>{
     const d=document.createElement('div');
-    d.className='slot'+(answer[i]?(' filled'):'');
-    d.textContent=answer[i]||'';
+    const hasLetter=tileIdx!==null;
+    d.className='slot'+(hasLetter?' filled':'');
+    d.textContent=hasLetter?tileLetters[tileIdx]:'';
     d.dataset.idx=i;
     d.onclick=()=>removeFromSlot(i);
     row.appendChild(d);
@@ -326,7 +327,7 @@ function addToAnswer(tileIdx){
   if(usedTiles[tileIdx]) return;
   const slot=answer.indexOf(null);
   if(slot===-1) return;
-  answer[slot]=tileLetters[tileIdx];
+  answer[slot]=tileIdx; // store tile INDEX, not letter
   usedTiles[tileIdx]=true;
   renderSlots();
   renderTiles();
@@ -334,31 +335,16 @@ function addToAnswer(tileIdx){
 }
 
 function removeFromSlot(slotIdx){
-  if(!answer[slotIdx]) return;
-  const letter=answer[slotIdx];
+  const tileIdx=answer[slotIdx];
+  if(tileIdx===null) return;
   answer[slotIdx]=null;
-  // re-enable the first matching unused tile
-  for(let i=0;i<tileLetters.length;i++){
-    if(!usedTiles[i]) continue; // skip non-used
-    if(tileLetters[i]===letter){
-      // find which tile is used and matches — need to track by original index
-      break;
-    }
-  }
-  // simpler: find tile that was used and has this letter
-  for(let i=0;i<tileLetters.length;i++){
-    if(usedTiles[i]&&tileLetters[i]===letter){
-      // check slot was holding it — just re-enable one
-      usedTiles[i]=false;
-      break;
-    }
-  }
+  usedTiles[tileIdx]=false; // re-enable the exact tile by index
   renderSlots();
   renderTiles();
 }
 
 function checkAnswer(){
-  const guess=answer.join('');
+  const guess=answer.map(ti=>ti!==null?tileLetters[ti]:'').join('');
   const correct=wordList[currentIndex].w;
   if(guess===correct){
     // correct!
@@ -412,12 +398,12 @@ function useHint(){
   const correct=wordList[currentIndex].w;
   // reveal the first unfilled slot
   for(let i=0;i<correct.length;i++){
-    if(!answer[i]){
+    if(answer[i]===null){
       const neededLetter=correct[i];
-      // find an unused tile with that letter
+      // find an unused tile (by index) with that letter
       for(let j=0;j<tileLetters.length;j++){
         if(!usedTiles[j]&&tileLetters[j]===neededLetter){
-          answer[i]=neededLetter;
+          answer[i]=j; // store tile index
           usedTiles[j]=true;
           hints--;
           document.getElementById('hints-num').textContent=hints;
